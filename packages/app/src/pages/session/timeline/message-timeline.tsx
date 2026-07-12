@@ -17,6 +17,7 @@ import { useNavigate } from "@solidjs/router"
 import { useMutation } from "@tanstack/solid-query"
 import { createVirtualizer, defaultRangeExtractor, elementScroll, type VirtualItem } from "@tanstack/solid-virtual"
 import { Accordion } from "@opencode-ai/ui/accordion"
+import { Collapsible } from "@opencode-ai/ui/collapsible"
 import { Button } from "@opencode-ai/ui/button"
 import { Card } from "@opencode-ai/ui/card"
 import {
@@ -144,6 +145,7 @@ function TimelineDiffSummaryRow(props: { diffs: SummaryDiff[] }) {
   const language = useLanguage()
   const maxFiles = 10
   const [state, setState] = createStore({
+    open: false,
     showAll: false,
     expanded: [] as string[],
   })
@@ -153,26 +155,28 @@ function TimelineDiffSummaryRow(props: { diffs: SummaryDiff[] }) {
   const visible = createMemo(() => (showAll() ? props.diffs : props.diffs.slice(0, maxFiles)))
 
   return (
-    <div
+    <Collapsible
       data-slot="session-turn-diffs"
       data-component="session-turn-diffs-group"
       data-show-all={showAll() || undefined}
+      open={state.open}
+      onOpenChange={(open) => setState("open", open)}
+      variant="ghost"
     >
-      <div data-slot="session-turn-diffs-header">
-        <span data-slot="session-turn-diffs-label">
-          {language.t(
-            props.diffs.length === 1 ? "ui.sessionTurn.diffs.changed.one" : "ui.sessionTurn.diffs.changed.other",
-            { count: String(props.diffs.length) },
-          )}
-        </span>
-        <DiffChanges changes={props.diffs} />
-        <Show when={overflow() > 0}>
-          <span data-slot="session-turn-diffs-toggle" onClick={() => setState("showAll", !showAll())}>
-            {showAll() ? language.t("ui.sessionTurn.diffs.showLess") : language.t("ui.sessionTurn.diffs.showAll")}
+      <Collapsible.Trigger>
+        <div data-slot="session-turn-diffs-header">
+          <span data-slot="session-turn-diffs-label">
+            {language.t(
+              props.diffs.length === 1 ? "ui.sessionTurn.diffs.changed.one" : "ui.sessionTurn.diffs.changed.other",
+              { count: String(props.diffs.length) },
+            )}
           </span>
-        </Show>
-      </div>
-      <div data-component="session-turn-diffs-content">
+          <DiffChanges changes={props.diffs} />
+          <Collapsible.Arrow />
+        </div>
+      </Collapsible.Trigger>
+      <Collapsible.Content>
+        <div data-component="session-turn-diffs-content">
         <Accordion
           multiple
           style={{ "--sticky-accordion-offset": "44px" }}
@@ -220,8 +224,9 @@ function TimelineDiffSummaryRow(props: { diffs: SummaryDiff[] }) {
             {language.t("ui.sessionTurn.diffs.more", { count: String(overflow()) })}
           </div>
         </Show>
-      </div>
-    </div>
+        </div>
+      </Collapsible.Content>
+    </Collapsible>
   )
 }
 

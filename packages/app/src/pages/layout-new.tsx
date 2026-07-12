@@ -43,7 +43,7 @@ export default function NewLayout(props: ParentProps) {
 
   return (
     <div
-      class="relative bg-v2-background-bg-deep flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text"
+      class="claude-window relative flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text"
       style={{
         "padding-top": "env(safe-area-inset-top, 0px)",
         "padding-bottom": "env(safe-area-inset-bottom, 0px)",
@@ -74,7 +74,8 @@ function ClaudeSidebar() {
   const server = useServer()
   const tabs = useTabs()
   const pickDirectory = useDirectoryPicker()
-  const [open, setOpen] = createSignal(true)
+  const [pinned, setPinned] = createSignal(true)
+  const [hovered, setHovered] = createSignal(false)
   const [projectMenu, setProjectMenu] = createSignal(false)
   const [searchOpen, setSearchOpen] = createSignal(false)
   const [searchQuery, setSearchQuery] = createSignal("")
@@ -82,14 +83,16 @@ function ClaudeSidebar() {
 
   onMount(() => {
     const stored = localStorage.getItem("opencode-claude-sidebar")
-    if (stored !== null) setOpen(stored === "open")
+    if (stored !== null) setPinned(stored === "pinned")
     const timer = window.setInterval(() => setNow(Date.now()), 60_000)
     onCleanup(() => window.clearInterval(timer))
   })
 
   createEffect(() => {
-    localStorage.setItem("opencode-claude-sidebar", open() ? "open" : "closed")
+    localStorage.setItem("opencode-claude-sidebar", pinned() ? "pinned" : "floating")
   })
+
+  const visible = createMemo(() => pinned() || hovered())
 
   const directory = createMemo(() => {
     const route = location.pathname.split("/")
@@ -188,32 +191,39 @@ function ClaudeSidebar() {
   })
 
   return (
-    <aside class="claude-sidebar relative shrink-0 flex min-h-0 flex-col" classList={{ "claude-sidebar-open": open() }}>
+    <div class="claude-sidebar-rail relative shrink-0 min-h-0" classList={{ "claude-sidebar-pinned": pinned() }}>
+      <div class="claude-sidebar-hotzone" onMouseEnter={() => setHovered(true)} />
+      <aside
+        class="claude-sidebar absolute inset-y-0 left-0 z-40 flex min-h-0 flex-col"
+        classList={{ "claude-sidebar-visible": visible(), "claude-sidebar-pinned": pinned() }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => {
+          if (!pinned() && !projectMenu()) setHovered(false)
+        }}
+      >
       <div class="claude-sidebar-header flex shrink-0 items-center justify-between gap-2">
-        <Show when={open()}>
-          <button
-            type="button"
-            class="claude-project-switcher flex min-w-0 flex-1 items-center gap-2 text-left"
-            onClick={() => setProjectMenu((value) => !value)}
-          >
-            <span class="claude-project-mark flex size-7 shrink-0 items-center justify-center rounded-md">
-              <Icon name="folder-add-left" size="small" />
-            </span>
-            <span class="min-w-0 truncate text-13-medium">{projectName()}</span>
-            <Icon name="chevron-down" size="small" class="shrink-0 text-v2-icon-icon-muted" />
-          </button>
-        </Show>
+        <button
+          type="button"
+          class="claude-project-switcher flex min-w-0 flex-1 items-center gap-2 text-left"
+          onClick={() => setProjectMenu((value) => !value)}
+        >
+          <span class="claude-project-mark flex size-7 shrink-0 items-center justify-center rounded-md">
+            <Icon name="folder-add-left" size="small" />
+          </span>
+          <span class="min-w-0 truncate text-13-medium">{projectName()}</span>
+          <Icon name="chevron-down" size="small" class="shrink-0 text-v2-icon-icon-muted" />
+        </button>
         <IconButtonV2
-          icon={<Icon name={open() ? "chevron-left" : "chevron-right"} size="small" />}
+          icon={<Icon name={pinned() ? "chevron-left" : "chevron-right"} size="small" />}
           variant="ghost-muted"
           size="small"
           class="claude-sidebar-toggle shrink-0"
-          onClick={() => setOpen((value) => !value)}
-          aria-label={open() ? "Collapse sidebar" : "Expand sidebar"}
+          onClick={() => setPinned((value) => !value)}
+          aria-label={pinned() ? "Unpin sidebar" : "Pin sidebar"}
         />
       </div>
 
-      <Show when={open() && projectMenu()}>
+      <Show when={visible() && projectMenu()}>
         <div class="claude-project-menu absolute left-3 right-3 top-[52px] z-30 flex flex-col gap-1 rounded-lg p-1">
           <For each={layout.projects.list()}>
             {(item) => (
@@ -234,8 +244,7 @@ function ClaudeSidebar() {
         </div>
       </Show>
 
-      <Show when={open()}>
-        <div class="claude-sidebar-body flex min-h-0 flex-1 flex-col">
+      <div class="claude-sidebar-body flex min-h-0 flex-1 flex-col">
           <div class="claude-sidebar-actions flex shrink-0 flex-col gap-1 px-3 pb-4">
             <button type="button" class="claude-sidebar-action" onClick={newSession}>
               <Icon name="plus-small" size="small" />
@@ -297,8 +306,8 @@ function ClaudeSidebar() {
               <span>Projects</span>
             </button>
           </div>
-        </div>
-      </Show>
-    </aside>
+      </div>
+      </aside>
+    </div>
   )
 }
