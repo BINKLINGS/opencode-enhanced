@@ -33,6 +33,7 @@ import { Persist, persisted } from "@/utils/persist"
 import createPresence from "solid-presence"
 import { useLocal } from "@/context/local"
 import { createPromptModelSelection } from "@/pages/session/composer/prompt-model-selection"
+import { getFilename } from "@opencode-ai/core/util/path"
 
 const workspaceBarEnabled = import.meta.env.VITE_OPENCODE_CHANNEL !== "prod"
 const providerTipDismissalDuration = 30 * 24 * 60 * 60 * 1000
@@ -97,6 +98,9 @@ export default function NewSessionPage() {
     return "main"
   })
   const projectRoot = createMemo(() => sync().project?.worktree ?? sdk().directory)
+  const projectName = createMemo(
+    () => serverSync().data.project.find((project) => project.worktree === projectRoot())?.name || getFilename(projectRoot()),
+  )
   const localBranch = createMemo(() => serverSync().child(projectRoot())[0].vcs?.branch)
   const selectedBranch = createMemo(() => {
     const worktree = newSessionWorktree()
@@ -140,7 +144,7 @@ export default function NewSessionPage() {
       <div class="flex-1 min-h-0 flex flex-col gap-2 p-2">
         <div class="@container relative flex flex-col min-h-0 h-full flex-1">
           <div class="flex-1 min-h-0 overflow-hidden rounded-[10px]">
-            <NewSessionDesignView>
+            <NewSessionDesignView projectName={projectName()}>
               <div class={NEW_SESSION_CONTENT_WIDTH}>
                 <Show
                   when={prompt.ready() || promptReady()}

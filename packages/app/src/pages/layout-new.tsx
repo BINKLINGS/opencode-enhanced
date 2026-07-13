@@ -6,6 +6,8 @@ import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useServer } from "@/context/server"
+import { useServerSDK } from "@/context/server-sdk"
+import { usePlatform } from "@/context/platform"
 import { useServerSync } from "@/context/server-sync"
 import { tabKey, useTabs } from "@/context/tabs"
 import { useDirectoryPicker } from "@/components/directory-picker"
@@ -58,6 +60,8 @@ function ClaudeSidebar() {
   const language = useLanguage()
   const command = useCommand()
   const server = useServer()
+  const sdk = useServerSDK()
+  const platform = usePlatform()
   const tabs = useTabs()
   const pickDirectory = useDirectoryPicker()
   const [pinned, setPinned] = createSignal(true)
@@ -66,6 +70,10 @@ function ClaudeSidebar() {
   const [searchOpen, setSearchOpen] = createSignal(false)
   const [searchQuery, setSearchQuery] = createSignal("")
   const [now, setNow] = createSignal(Date.now())
+  const [deleteTarget, setDeleteTarget] = createSignal<
+    | { type: "project"; worktree: string; label: string }
+    | { type: "session"; id: string; label: string }
+  >()
 
   onMount(() => {
     const stored = localStorage.getItem("opencode-claude-sidebar")
@@ -147,20 +155,20 @@ function ClaudeSidebar() {
   const addProject = () => {
     const current = server.current
     if (!current) return
-    pickDirectory({
-      server: current,
-      title: "Add project",
-      multiple: true,
-      onSelect: (value) => {
-        const directories = value ? (Array.isArray(value) ? value : [value]) : []
-        const first = directories[0]
-        if (!first) return
-        directories.forEach((item) => layout.projects.open(item))
-        layout.home.setSelection({ server: server.key, directory: first })
-        setProjectMenu(false)
-        navigate("/")
-      },
-    })
+    const onSelect = (value: string | string[] | null) => {
+      const directories = value ? (Array.isArray(value) ? value : [value]) : []
+      const first = directories[0]
+      if (!first) return
+      directories.forEach((item) => layout.projects.open(item))
+      layout.home.setSelection({ server: server.key, directory: first })
+      setProjectMenu(false)
+      navigate("/")
+    }
+    if (platform.platform === "desktop") {
+      void platform.openDirectoryPickerDialog({ title: "Add project", multiple: true }).then(onSelect)
+      return
+    }
+    pickDirectory({ server: current, title: "Add project", multiple: true, onSelect })
   }
 
   const selectProject = (worktree: string) => {
@@ -168,6 +176,39 @@ function ClaudeSidebar() {
     layout.home.setSelection({ server: server.key, directory: worktree })
     setProjectMenu(false)
     navigate("/")
+  }
+
+  const removeProject = (worktree: string) => {
+    setDeleteTarget({ type: "project", worktree, label: getFilename(worktree) })
+  }
+
+  const deleteSession = (id: string) => {
+    const session = sync().session.get(id)
+    if (!session) return
+    setDeleteTarget({ type: "session", id, label: sessionTitle(session.title) || "this session" })
+  }
+
+  const confirmDelete = async () => {
+    const target = deleteTarget()
+    if (!target) return
+    if (target.type === "project") {
+      layout.projects.close(target.worktree)
+      if (pathKey(directory() ?? "") === pathKey(target.worktree)) {
+        layout.home.setSelection({ server: server.key })
+        navigate("/")
+      }
+      setProjectMenu(false)
+      setDeleteTarget()
+      return
+    }
+    const result = await sdk()
+      .client.session.delete({ sessionID: target.id })
+      .then((response) => response.data)
+      .catch(() => false)
+    if (!result) return
+    tabs.removeSessionTab({ server: server.key, sessionId: target.id })
+    if (currentSession() === target.id) navigate("/")
+    setDeleteTarget()
   }
 
   const projectName = createMemo(() => {
@@ -213,14 +254,24 @@ function ClaudeSidebar() {
         <div class="claude-project-menu absolute left-3 right-3 top-[52px] z-30 flex flex-col gap-1 rounded-lg p-1">
           <For each={layout.projects.list()}>
             {(item) => (
+              <div class="claude-project-menu-row flex items-center gap-1">
               <button
                 type="button"
-                class="claude-project-menu-item flex min-w-0 items-center gap-2 rounded-md px-2 text-left"
+                class="claude-project-menu-item flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left"
                 onClick={() => selectProject(item.worktree)}
               >
                 <Icon name="folder" size="small" />
                 <span class="min-w-0 flex-1 truncate">{item.name || getFilename(item.worktree)}</span>
               </button>
+              <IconButtonV2
+                icon={<Icon name="trash" size="small" />}
+                variant="ghost-muted"
+                size="small"
+                class="claude-project-remove shrink-0"
+                onClick={() => removeProject(item.worktree)}
+                aria-label={`Remove ${item.name || getFilename(item.worktree)}`}
+              />
+              </div>
             )}
           </For>
           <button type="button" class="claude-project-menu-item flex items-center gap-2 rounded-md px-2 text-left" onClick={addProject}>
@@ -264,9 +315,10 @@ function ClaudeSidebar() {
               <nav class="flex flex-col gap-1">
                 <For each={visibleSessions()}>
                   {(session) => (
+                    <div class="claude-session-row group flex min-w-0 items-center gap-1">
                     <button
                       type="button"
-                      class="claude-session-item flex min-w-0 items-center gap-2 text-left"
+                      class="claude-session-item flex min-w-0 flex-1 items-center gap-2 text-left"
                       classList={{ "claude-session-item-active": currentSession() === session.id }}
                       onClick={() => goToSession(session.id)}
                     >
@@ -276,6 +328,15 @@ function ClaudeSidebar() {
                         <span class="claude-session-working shrink-0" />
                       </Show>
                     </button>
+                    <IconButtonV2
+                      icon={<Icon name="trash" size="small" />}
+                      variant="ghost-muted"
+                      size="small"
+                      class="claude-session-remove shrink-0"
+                      onClick={() => deleteSession(session.id)}
+                      aria-label={`Delete ${sessionTitle(session.title) || "session"}`}
+                    />
+                    </div>
                   )}
                 </For>
               </nav>
@@ -294,6 +355,28 @@ function ClaudeSidebar() {
           </div>
       </div>
       </aside>
+      <Show when={deleteTarget()}>
+        {(target) => (
+          <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-6">
+            <div role="dialog" aria-modal="true" class="w-full max-w-sm rounded-xl border border-v2-border-border-base bg-[rgb(38_36_38)] p-5 shadow-[0_20px_48px_rgb(0_0_0_/_35%)]">
+              <h2 class="text-16-medium text-v2-text-text-base">Delete {target().type}?</h2>
+              <p class="mt-2 text-13-regular text-v2-text-text-muted">
+                <Show when={target().type === "project"} fallback={`Delete ${target().label}? This cannot be undone.`}>
+                  Remove {target().label} from your project list?
+                </Show>
+              </p>
+              <div class="mt-5 flex justify-end gap-2">
+                <button type="button" class="rounded-md px-3 py-2 text-13-medium text-v2-text-text-muted hover:bg-v2-overlay-simple-overlay-hover" onClick={() => setDeleteTarget()}>
+                  Cancel
+                </button>
+                <button type="button" class="rounded-md bg-v2-state-bg-danger px-3 py-2 text-13-medium text-v2-state-fg-danger" onClick={() => void confirmDelete()}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Show>
     </div>
   )
 }

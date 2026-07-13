@@ -421,6 +421,24 @@
     background: var(--v2-overlay-simple-overlay-hover);
   }
 
+  .claude-project-remove,
+  .claude-session-remove {
+    opacity: 0;
+    transition: opacity 150ms ease, color 150ms ease, background-color 150ms ease;
+  }
+
+  .claude-project-menu-row:hover .claude-project-remove,
+  .claude-session-row:hover .claude-session-remove,
+  .claude-project-remove:focus-visible,
+  .claude-session-remove:focus-visible {
+    opacity: 1;
+  }
+
+  .claude-project-remove:hover,
+  .claude-session-remove:hover {
+    color: var(--v2-icon-icon-danger);
+  }
+
   .claude-sidebar-toggle {
     color: var(--v2-icon-icon-muted);
   }
@@ -537,12 +555,30 @@
   }
 
   .claude-main {
+    position: relative;
     min-width: 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
     animation: claude-main-enter 280ms ease-out both;
+    isolation: isolate;
+  }
+
+  .claude-main::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    content: "";
+    pointer-events: none;
+    background-image: radial-gradient(circle at 1px 1px, rgb(154 109 99 / 20%) 1px, transparent 1.2px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(135deg, rgb(0 0 0 / 72%), rgb(0 0 0 / 28%) 58%, transparent 100%);
+  }
+
+  .claude-main > * {
+    position: relative;
+    z-index: 1;
   }
 
   .claude-home {
