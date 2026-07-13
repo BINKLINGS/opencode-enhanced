@@ -332,7 +332,7 @@ export function MessageTimeline(props: {
     userMessages: () => props.userMessages,
     parts: getMsgParts,
     status: sessionStatus,
-    showReasoningSummaries: settings.general.showReasoningSummaries,
+    showReasoningSummaries: () => true,
   })
   const activeMessageID = projection.activeMessageID
   const assistantMessagesByParent = projection.assistantMessagesByParent
@@ -1198,7 +1198,7 @@ export function MessageTimeline(props: {
             <div data-slot="session-turn-message-container" class="w-full px-4 md:px-5">
               <TimelineThinkingRow
                 reasoningHeading={thinkingRow().reasoningHeading}
-                showReasoningSummaries={settings.general.showReasoningSummaries()}
+                showReasoningSummaries
               />
             </div>
           </TimelineRowFrame>
