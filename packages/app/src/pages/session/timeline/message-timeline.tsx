@@ -34,6 +34,7 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
+import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
 import { Dialog } from "@opencode-ai/ui/dialog"
@@ -62,7 +63,7 @@ import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/
 import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
-import { useSessionKey } from "@/pages/session/session-layout"
+import { useSessionLayout } from "@/pages/session/session-layout"
 import { useServerSDK } from "@/context/server-sdk"
 import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
@@ -175,11 +176,11 @@ function TimelineDiffSummaryRow(props: { diffs: SummaryDiff[] }) {
           <Collapsible.Arrow />
         </div>
       </Collapsible.Trigger>
-      <Collapsible.Content>
+      <Collapsible.Content class="claude-disclosure-content">
         <div data-component="session-turn-diffs-content">
         <Accordion
           multiple
-          style={{ "--sticky-accordion-offset": "44px" }}
+          style={{ "--sticky-accordion-offset": "0px" }}
           value={expanded()}
           onChange={(value) => setState("expanded", Array.isArray(value) ? value : value ? [value] : [])}
         >
@@ -272,7 +273,7 @@ export function MessageTimeline(props: {
   const tabs = useTabs()
   const dialog = useDialog()
   const language = useLanguage()
-  const { params, sessionKey } = useSessionKey()
+  const { params, sessionKey, view } = useSessionLayout()
   const ownerSessionKey = sessionKey()
   const cached = timelineCache.get(ownerSessionKey)
   const initialMeasurements = cached?.measurements
@@ -1384,8 +1385,6 @@ export function MessageTimeline(props: {
             data-session-title
             classList={{
               "sticky top-0 z-30": true,
-              "bg-[linear-gradient(to_bottom,var(--v2-background-bg-base)_48px,transparent)]":
-                settings.general.newLayoutDesigns(),
               "bg-[linear-gradient(to_bottom,var(--background-stronger)_48px,transparent)]":
                 !settings.general.newLayoutDesigns(),
               "w-full": true,
@@ -1485,6 +1484,20 @@ export function MessageTimeline(props: {
                       "gap-3": !settings.general.newLayoutDesigns(),
                     }}
                   >
+                    <TooltipV2 placement="bottom" value={language.t("command.review.toggle")}>
+                      <IconButtonV2
+                        type="button"
+                        variant="ghost-muted"
+                        size="large"
+                        class="claude-review-toggle !w-9 shrink-0"
+                        state={view().reviewPanel.opened() ? "pressed" : undefined}
+                        onClick={() => view().reviewPanel.toggle()}
+                        aria-label={language.t("command.review.toggle")}
+                        aria-expanded={view().reviewPanel.opened()}
+                        aria-controls="review-panel"
+                        icon={<IconV2 name="sidebar-right" />}
+                      />
+                    </TooltipV2>
                     <SessionContextUsage
                       placement="bottom"
                       buttonAppearance={settings.general.newLayoutDesigns() ? "v2" : "default"}

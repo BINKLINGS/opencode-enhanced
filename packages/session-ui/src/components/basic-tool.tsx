@@ -1,5 +1,4 @@
 import { createEffect, For, Match, on, onCleanup, onMount, Show, Switch, type Accessor, type JSX } from "solid-js"
-import { animate, type AnimationPlaybackControls } from "motion"
 import { useI18n } from "@opencode-ai/ui/context/i18n"
 import { createStore } from "solid-js/store"
 import { Collapsible } from "@opencode-ai/ui/collapsible"
@@ -43,7 +42,6 @@ export interface BasicToolProps {
   clickable?: boolean
 }
 
-const SPRING = { type: "spring" as const, visualDuration: 0.35, bounce: 0 }
 const deferredMounts: Array<{ active: boolean; fn: () => void }> = []
 let deferredFrame: number | undefined
 
@@ -94,10 +92,13 @@ export function BasicTool(props: BasicToolProps) {
   const dynamicTrigger = typeof props.trigger === "function" ? props.trigger(open) : undefined
 
   let cancelReady: (() => void) | undefined
+  let closeTimer: number | undefined
 
   const cancel = () => {
     cancelReady?.()
     cancelReady = undefined
+    if (closeTimer !== undefined) window.clearTimeout(closeTimer)
+    closeTimer = undefined
   }
 
   const scheduleReady = (initial = false) => {
@@ -133,7 +134,19 @@ export function BasicTool(props: BasicToolProps) {
         if (!props.defer) return
         if (!value) {
           cancel()
+          if (props.animated) {
+            closeTimer = window.setTimeout(() => {
+              closeTimer = undefined
+              if (!open()) setState("ready", false)
+            }, 180)
+            return
+          }
           setState("ready", false)
+          return
+        }
+
+        if (props.animated) {
+          setState("ready", true)
           return
         }
 
@@ -143,41 +156,10 @@ export function BasicTool(props: BasicToolProps) {
     ),
   )
 
-  // Animated height for collapsible open/close
-  let contentRef: HTMLDivElement | undefined
-  let heightAnim: AnimationPlaybackControls | undefined
-  const initialOpen = open()
-
-  createEffect(
-    on(
-      open,
-      (isOpen) => {
-        if (!props.animated || !contentRef) return
-        heightAnim?.stop()
-        if (isOpen) {
-          contentRef.style.overflow = "hidden"
-          heightAnim = animate(contentRef, { height: "auto" }, SPRING)
-          void heightAnim.finished.then(() => {
-            if (!contentRef || !open()) return
-            contentRef.style.overflow = "visible"
-            contentRef.style.height = "auto"
-          })
-        } else {
-          contentRef.style.overflow = "hidden"
-          heightAnim = animate(contentRef, { height: "0px" }, SPRING)
-        }
-      },
-      { defer: true },
-    ),
-  )
-
-  onCleanup(() => {
-    heightAnim?.stop()
-  })
-
   const handleOpenChange = (value: boolean) => {
     if (pending()) return
     if (props.locked && !value) return
+    if (value && props.animated && props.defer && !ready()) setState("ready", true)
     setOpen(value)
   }
 
@@ -278,21 +260,8 @@ export function BasicTool(props: BasicToolProps) {
           {trigger()}
         </Collapsible.Trigger>
       </Show>
-      <Show when={props.animated && hasChildren() && !props.hideDetails}>
-        <div
-          ref={contentRef}
-          data-slot="collapsible-content"
-          data-animated
-          style={{
-            height: initialOpen ? "auto" : "0px",
-            overflow: initialOpen ? "visible" : "hidden",
-          }}
-        >
-          <Show when={!props.defer || ready()}>{props.children}</Show>
-        </div>
-      </Show>
-      <Show when={!props.animated && hasChildren() && !props.hideDetails}>
-        <Collapsible.Content>
+      <Show when={hasChildren() && !props.hideDetails}>
+        <Collapsible.Content class={props.animated ? "claude-tool-disclosure" : undefined}>
           <Show when={!props.defer || ready()}>{props.children}</Show>
         </Collapsible.Content>
       </Show>

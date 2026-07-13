@@ -1061,6 +1061,7 @@ export function ContextToolGroup(props: {
     if (props.open === undefined) setLocalOpen(value)
     props.onOpenChange?.(value)
     props.onSizeChange?.()
+    window.setTimeout(() => props.onSizeChange?.(), 220)
   }
 
   return (
@@ -1117,7 +1118,7 @@ export function ContextToolGroup(props: {
           <Collapsible.Arrow />
         </div>
       </Collapsible.Trigger>
-      <Collapsible.Content>
+      <Collapsible.Content class="claude-disclosure-content context-tool-group-content">
         <div data-component="context-tool-group-list">
           <Index each={props.parts}>
             {(partAccessor) => {
@@ -1411,6 +1412,7 @@ export interface ToolProps {
   onContentRendered?: () => void
   forceOpen?: boolean
   locked?: boolean
+  animated?: boolean
 }
 
 export type ToolComponent = Component<ToolProps>
@@ -1556,6 +1558,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
               deferContent={props.deferToolContent}
               virtualizeDiff={props.virtualizeDiff}
               onContentRendered={props.onContentRendered}
+              animated
             />
           </Match>
         </Switch>
@@ -1695,10 +1698,30 @@ PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
   const i18n = useI18n()
   const part = () => props.part as ReasoningPart
   const [open, setOpen] = createSignal(false)
+  const [now, setNow] = createSignal(Date.now())
   const streaming = createMemo(
     () => props.message.role === "assistant" && typeof (props.message as AssistantMessage).time.completed !== "number",
   )
   const text = () => readPartText(data.store.part_text_accum_delta, part())
+  const duration = createMemo(() => Math.max(0, Math.round(((part().time.end ?? now()) - part().time.start) / 1000)))
+  let content: HTMLDivElement | undefined
+
+  createEffect(() => {
+    setOpen(streaming())
+  })
+
+  createEffect(() => {
+    if (!streaming()) return
+    text()
+    queueMicrotask(() => {
+      if (content) content.scrollTop = content.scrollHeight
+    })
+  })
+
+  onMount(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 250)
+    onCleanup(() => window.clearInterval(timer))
+  })
 
   return (
     <Show when={text()}>
@@ -1711,10 +1734,11 @@ PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
       >
         <Collapsible.Trigger>
           <span data-slot="reasoning-part-label">{i18n.t("ui.sessionTurn.status.thinking")}</span>
+          <span data-slot="reasoning-part-duration">{duration()}s</span>
           <Collapsible.Arrow />
         </Collapsible.Trigger>
-        <Collapsible.Content>
-          <div data-component="reasoning-part">
+        <Collapsible.Content class="claude-disclosure-content">
+          <div ref={content} data-component="reasoning-part" data-streaming={streaming() ? "" : undefined}>
             <Show when={streaming()} fallback={<Markdown text={text()} cacheKey={part().id} streaming={false} />}>
               <PacedMarkdown text={text()} cacheKey={part().id} streaming={streaming()} />
             </Show>
@@ -1749,7 +1773,20 @@ ToolRegistry.register({
             subtitle: props.input.filePath ? getFilename(props.input.filePath) : "",
             args,
           }}
-        />
+        >
+          <Show when={props.output}>
+            <div
+              data-component="tool-output"
+              data-tool="read"
+              data-scrollable
+              tabIndex={0}
+              role="region"
+              aria-label={i18n.t("ui.scrollView.ariaLabel")}
+            >
+              <pre>{props.output}</pre>
+            </div>
+          </Show>
+        </BasicTool>
         <For each={loaded()}>
           {(filepath) => (
             <div data-component="tool-loaded-file">

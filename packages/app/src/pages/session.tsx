@@ -37,7 +37,7 @@ import { Button } from "@opencode-ai/ui/button"
 import { showToast } from "@/utils/toast"
 import { base64Encode, checksum } from "@opencode-ai/core/util/encode"
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router"
-import { NewSessionView, SessionHeader } from "@/components/session"
+import { NewSessionView } from "@/components/session"
 import { ErrorPage } from "@/pages/error"
 import { CommentsProvider, useComments } from "@/context/comments"
 import { DirectoryDataProvider } from "@/pages/directory-layout"
@@ -321,11 +321,9 @@ function SessionPanelFrame(props: ParentProps<{ newLayout: boolean; raised?: boo
   return (
     <div
       classList={{
-        "flex-1 min-h-0 flex flex-col": true,
-        "bg-v2-background-bg-base": props.newLayout,
+        "flex-1 min-h-0 flex flex-col overflow-hidden": true,
+        "bg-transparent": props.newLayout,
         "bg-background-stronger": !props.newLayout,
-        "rounded-[10px] overflow-hidden": props.newLayout,
-        "shadow-[var(--v2-elevation-raised)]": props.newLayout && props.raised,
       }}
     >
       {props.children}
@@ -2193,7 +2191,6 @@ export default function Page() {
 
   return (
     <SessionRouteFrame>
-      <SessionHeader />
       <div
         ref={panelRow}
         class="flex-1 min-h-0 flex flex-col md:flex-row"

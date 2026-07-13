@@ -2,11 +2,9 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, 
 import { useLocation, useNavigate } from "@solidjs/router"
 import { DebugBar } from "@/components/debug-bar"
 import { HelpButton, TabsInfoPopup } from "@/components/help-button"
-import { Titlebar, type TitlebarUpdate } from "@/components/titlebar"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
-import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useServerSync } from "@/context/server-sync"
 import { tabKey, useTabs } from "@/context/tabs"
@@ -23,23 +21,12 @@ import { pathKey } from "@/utils/path-key"
 import { sessionTitle } from "@/utils/session-title"
 
 export default function NewLayout(props: ParentProps) {
-  const platform = usePlatform()
   const navigate = useNavigate()
   const language = useLanguage()
   setNavigate(navigate)
   useSettingsCommand()
 
   createEffect(() => setV2Toast(true))
-
-  const update: TitlebarUpdate = {
-    version: () => {
-      const state = platform.updater?.state()
-      if (state?.status !== "ready") return
-      return state.version
-    },
-    installing: () => platform.updater?.state().status === "installing",
-    install: () => void platform.updater?.install(),
-  }
 
   return (
     <div
@@ -49,7 +36,6 @@ export default function NewLayout(props: ParentProps) {
         "padding-bottom": "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <Titlebar update={update} />
       <div class="claude-layout flex-1 min-h-0 min-w-0 flex overflow-hidden">
         <ClaudeSidebar />
         <main class="claude-main flex-1 min-h-0 min-w-0 overflow-x-hidden flex flex-col items-start contain-strict">
