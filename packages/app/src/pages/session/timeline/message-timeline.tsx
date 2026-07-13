@@ -332,7 +332,7 @@ export function MessageTimeline(props: {
     userMessages: () => props.userMessages,
     parts: getMsgParts,
     status: sessionStatus,
-    showReasoningSummaries: () => true,
+    showReasoningSummaries: settings.general.showReasoningSummaries,
   })
   const activeMessageID = projection.activeMessageID
   const assistantMessagesByParent = projection.assistantMessagesByParent
@@ -1001,7 +1001,7 @@ export function MessageTimeline(props: {
       })
       const contextOpenKey = () => `context:${row().group.key}`
       const open = createMemo(() => {
-        return toolOpen[contextOpenKey()] === true
+        return toolOpen[contextOpenKey()] ?? settings.general.toolPartsExpanded()
       })
 
       return (
@@ -1030,7 +1030,7 @@ export function MessageTimeline(props: {
     const defaultOpen = createMemo(() => {
       const item = part()
       if (!item) return
-      return partDefaultOpen(item, settings.general.shellToolPartsExpanded(), settings.general.editToolPartsExpanded())
+      return partDefaultOpen(item, settings.general.shellToolPartsExpanded(), settings.general.toolPartsExpanded())
     })
 
     return (
@@ -1044,6 +1044,7 @@ export function MessageTimeline(props: {
                 showAssistantCopyPartID={assistantCopyPartID(row().userMessageID)}
                 turnDurationMs={turnDurationMs(row().userMessageID)}
                 useV2Actions={settings.general.newLayoutDesigns()}
+                reasoningOpen={settings.general.reasoningPartsExpanded()}
                 defaultOpen={defaultOpen()}
                 toolOpen={toolOpen[part().id] ?? defaultOpen()}
                 onToolOpenChange={(open) => setToolOpen(part().id, open)}
@@ -1198,7 +1199,7 @@ export function MessageTimeline(props: {
             <div data-slot="session-turn-message-container" class="w-full px-4 md:px-5">
               <TimelineThinkingRow
                 reasoningHeading={thinkingRow().reasoningHeading}
-                showReasoningSummaries
+                showReasoningSummaries={settings.general.showReasoningSummaries()}
               />
             </div>
           </TimelineRowFrame>

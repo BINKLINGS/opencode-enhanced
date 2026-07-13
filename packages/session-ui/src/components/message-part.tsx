@@ -180,6 +180,7 @@ export interface MessagePartProps {
   part: PartType
   message: MessageType
   hideDetails?: boolean
+  reasoningOpen?: boolean
   defaultOpen?: boolean
   toolOpen?: boolean
   onToolOpenChange?: (open: boolean) => void
@@ -1382,6 +1383,7 @@ export function Part(props: MessagePartProps) {
         part={props.part}
         message={props.message}
         hideDetails={props.hideDetails}
+        reasoningOpen={props.reasoningOpen}
         defaultOpen={props.defaultOpen}
         toolOpen={props.toolOpen}
         onToolOpenChange={props.onToolOpenChange}
@@ -1697,7 +1699,7 @@ PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
   const data = useData()
   const i18n = useI18n()
   const part = () => props.part as ReasoningPart
-  const [open, setOpen] = createSignal(false)
+  const [open, setOpen] = createSignal(props.reasoningOpen ?? false)
   const [now, setNow] = createSignal(Date.now())
   const streaming = createMemo(
     () => props.message.role === "assistant" && typeof (props.message as AssistantMessage).time.completed !== "number",
@@ -1707,7 +1709,7 @@ PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
   let content: HTMLDivElement | undefined
 
   createEffect(() => {
-    setOpen(streaming())
+    setOpen(streaming() || props.reasoningOpen === true)
   })
 
   createEffect(() => {

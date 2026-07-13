@@ -200,8 +200,6 @@ export const SettingsGeneral: Component = () => {
   }
 
   const colorSchemeOptions = createMemo((): { value: ColorScheme; label: string }[] => [
-    { value: "system", label: language.t("theme.scheme.system") },
-    { value: "light", label: language.t("theme.scheme.light") },
     { value: "dark", label: language.t("theme.scheme.dark") },
   ])
 
@@ -439,7 +437,7 @@ export const SettingsGeneral: Component = () => {
             current={colorSchemeOptions().find((o) => o.value === theme.colorScheme())}
             value={(o) => o.value}
             label={(o) => o.label}
-            onSelect={(option) => option && theme.setColorScheme(option.value)}
+            onSelect={() => theme.setColorScheme("dark")}
             variant="secondary"
             size="small"
             triggerVariant="settings"

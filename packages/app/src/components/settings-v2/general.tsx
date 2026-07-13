@@ -181,8 +181,6 @@ export const SettingsGeneralV2: Component<{
   }
 
   const colorSchemeOptions = createMemo((): { value: ColorScheme; label: string }[] => [
-    { value: "system", label: language.t("theme.scheme.system") },
-    { value: "light", label: language.t("theme.scheme.light") },
     { value: "dark", label: language.t("theme.scheme.dark") },
   ])
 
@@ -421,7 +419,7 @@ export const SettingsGeneralV2: Component<{
             gutter={6}
             value={(o) => o.value}
             label={(o) => o.label}
-            onSelect={(option) => option && theme.setColorScheme(option.value)}
+            onSelect={() => theme.setColorScheme("dark")}
           />
         </SettingsRowV2>
 

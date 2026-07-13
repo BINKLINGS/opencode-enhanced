@@ -29,6 +29,8 @@ export interface Settings {
     showStatus: boolean
     showTerminal: boolean
     showReasoningSummaries: boolean
+    reasoningPartsExpanded: boolean
+    toolPartsExpanded: boolean
     shellToolPartsExpanded: boolean
     editToolPartsExpanded: boolean
     showCustomAgents: boolean
@@ -113,9 +115,11 @@ const defaultSettings: Settings = {
     showSearch: false,
     showStatus: false,
     showTerminal: false,
-    showReasoningSummaries: false,
-    shellToolPartsExpanded: false,
-    editToolPartsExpanded: false,
+    showReasoningSummaries: true,
+    reasoningPartsExpanded: true,
+    toolPartsExpanded: true,
+    shellToolPartsExpanded: true,
+    editToolPartsExpanded: true,
     showCustomAgents: false,
     mobileTitlebarPosition: "top",
   },
@@ -175,6 +179,22 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       setStore("general", "followup", "steer")
     })
 
+    createEffect(() => {
+      if (
+        store.general?.showReasoningSummaries === true &&
+        store.general?.reasoningPartsExpanded === true &&
+        store.general?.toolPartsExpanded === true &&
+        store.general?.shellToolPartsExpanded === true &&
+        store.general?.editToolPartsExpanded === true
+      )
+        return
+      setStore("general", "showReasoningSummaries", true)
+      setStore("general", "reasoningPartsExpanded", true)
+      setStore("general", "toolPartsExpanded", true)
+      setStore("general", "shellToolPartsExpanded", true)
+      setStore("general", "editToolPartsExpanded", true)
+    })
+
     return {
       ready,
       get current() {
@@ -221,21 +241,32 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
           defaultSettings.general.showReasoningSummaries,
         ),
         setShowReasoningSummaries(value: boolean) {
-          setStore("general", "showReasoningSummaries", value)
+          setStore("general", "showReasoningSummaries", true)
+        },
+        reasoningPartsExpanded: withFallback(
+          () => store.general?.reasoningPartsExpanded,
+          defaultSettings.general.reasoningPartsExpanded,
+        ),
+        setReasoningPartsExpanded(value: boolean) {
+          setStore("general", "reasoningPartsExpanded", true)
+        },
+        toolPartsExpanded: withFallback(() => store.general?.toolPartsExpanded, defaultSettings.general.toolPartsExpanded),
+        setToolPartsExpanded(value: boolean) {
+          setStore("general", "toolPartsExpanded", true)
         },
         shellToolPartsExpanded: withFallback(
           () => store.general?.shellToolPartsExpanded,
           defaultSettings.general.shellToolPartsExpanded,
         ),
         setShellToolPartsExpanded(value: boolean) {
-          setStore("general", "shellToolPartsExpanded", value)
+          setStore("general", "shellToolPartsExpanded", true)
         },
         editToolPartsExpanded: withFallback(
           () => store.general?.editToolPartsExpanded,
           defaultSettings.general.editToolPartsExpanded,
         ),
         setEditToolPartsExpanded(value: boolean) {
-          setStore("general", "editToolPartsExpanded", value)
+          setStore("general", "editToolPartsExpanded", true)
         },
         showCustomAgents,
         setShowCustomAgents(value: boolean) {

@@ -17,6 +17,7 @@ import { useSettingsCommand } from "@/components/settings-dialog"
 import { getFilename } from "@opencode-ai/core/util/path"
 import { Icon } from "@opencode-ai/ui/icon"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
+import { useTheme } from "@opencode-ai/ui/theme/context"
 import { sortedRootSessions } from "./layout/helpers"
 import { decode64 } from "@/utils/base64"
 import { pathKey } from "@/utils/path-key"
@@ -24,11 +25,16 @@ import { sessionTitle } from "@/utils/session-title"
 
 export default function NewLayout(props: ParentProps) {
   const navigate = useNavigate()
+  const theme = useTheme()
   const language = useLanguage()
   setNavigate(navigate)
   useSettingsCommand()
 
   createEffect(() => setV2Toast(true))
+  createEffect(() => {
+    if (theme.colorScheme() === "dark") return
+    theme.setColorScheme("dark")
+  })
 
   return (
     <div
