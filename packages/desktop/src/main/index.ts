@@ -46,12 +46,17 @@ import { cleanupStoreFiles } from "./store-cleanup"
 const APP_NAMES: Record<string, string> = {
   dev: "OpenCode Dev",
   beta: "OpenCode Beta",
-  prod: "OpenCode",
+  prod: "OpenCode Enhanced",
 }
 const APP_IDS: Record<string, string> = {
   dev: "ai.opencode.desktop.dev",
   beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  prod: "ai.opencode.enhanced",
+}
+const DEEP_LINK_PROTOCOLS: Record<string, string> = {
+  dev: "opencode",
+  beta: "opencode",
+  prod: "opencode-enhanced",
 }
 const TEST_ONBOARDING = process.env.OPENCODE_TEST_ONBOARDING === "1"
 const jsCallStackFeature = "DocumentPolicyIncludeJSCallStacksInCrashReports"
@@ -194,7 +199,7 @@ const main = Effect.gen(function* () {
   preferAppEnv(app.getPath("userData"))
 
   app.on("second-instance", (_event: Event, argv: string[]) => {
-    const urls = argv.filter((arg: string) => arg.startsWith("opencode://"))
+    const urls = argv.filter((arg: string) => arg.startsWith(`${DEEP_LINK_PROTOCOLS[CHANNEL]}://`))
     if (urls.length) {
       logger.log("deep link received via second-instance", { urls })
       emitDeepLinks(urls)

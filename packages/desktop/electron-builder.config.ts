@@ -9,12 +9,6 @@ const execFileAsync = promisify(execFile)
 const packageDir = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(packageDir, "../..")
 const signScript = path.join(rootDir, "script", "sign-windows.ps1")
-// The Electron 42 packaging update briefly installed Linux launchers/icons under
-// "opencode-desktop". Keep that hidden desktop entry around so existing GNOME/KDE
-// pins still resolve after the canonical app id changes back to ai.opencode.desktop.
-const legacyDesktopEntry = path.join(packageDir, "resources", "linux", "opencode-desktop.desktop")
-const legacyDesktopEntryFpm = `${legacyDesktopEntry}=/usr/share/applications/opencode-desktop.desktop`
-
 async function signWindows(configuration: { path: string }) {
   if (process.platform !== "win32") return
   if (process.env.GITHUB_ACTIONS !== "true") return
@@ -35,7 +29,7 @@ const channel = (() => {
 const APP_IDS = {
   dev: "ai.opencode.desktop.dev",
   beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  prod: "ai.opencode.enhanced",
 } as const
 
 const getBase = (appId: string): Configuration => ({
@@ -45,8 +39,8 @@ const getBase = (appId: string): Configuration => ({
     buildResources: "resources",
   },
   // Linux launchers are .desktop files, so this is the desktop file name,
-  // not just the app id. For prod, app id "ai.opencode.desktop" becomes
-  // "ai.opencode.desktop.desktop".
+  // not just the app id. For prod, app id "ai.opencode.enhanced" becomes
+  // "ai.opencode.enhanced.desktop".
   // https://developer.gnome.org/documentation/guidelines/maintainer/integrating.html
   // https://www.electron.build/docs/linux/
   extraMetadata: {
@@ -133,11 +127,11 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "OpenCode",
-        protocols: { name: "OpenCode", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
-        deb: { fpm: [legacyDesktopEntryFpm] },
-        rpm: { packageName: "opencode", fpm: [legacyDesktopEntryFpm] },
+        artifactName: "opencode-enhanced-${os}-${arch}.${ext}",
+        productName: "OpenCode Enhanced",
+        protocols: { name: "OpenCode Enhanced", schemes: ["opencode-enhanced"] },
+        win: { ...base.win, executableName: "OpenCode Enhanced" },
+        rpm: { packageName: "opencode-enhanced" },
       }
     }
   }
