@@ -5,6 +5,7 @@ import {
   createSignal,
   For,
   Match,
+  on,
   onMount,
   Show,
   Switch,
@@ -631,6 +632,16 @@ export type PartGroup =
       type: "context"
       refs: PartRef[]
     }
+  | {
+      key: string
+      type: "reasoning"
+      refs: PartRef[]
+    }
+
+export type ReasoningGroupItem = {
+  message: MessageType
+  part: ReasoningPart
+}
 
 function sameRef(a: PartRef, b: PartRef) {
   return a.messageID === b.messageID && a.partID === b.partID
@@ -644,7 +655,7 @@ function sameGroup(a: PartGroup, b: PartGroup) {
     if (b.type !== "part") return false
     return sameRef(a.ref, b.ref)
   }
-  if (b.type !== "context") return false
+  if (b.type === "part" || a.type !== b.type) return false
   if (a.refs.length !== b.refs.length) return false
   return a.refs.every((ref, i) => sameRef(ref, b.refs[i]!))
 }
@@ -658,34 +669,61 @@ export function sameGroups(a: readonly PartGroup[] | undefined, b: readonly Part
 
 export function groupParts(parts: { messageID: string; part: PartType }[]) {
   const result: PartGroup[] = []
-  let start = -1
+  let contextStart = -1
+  let reasoningStart = -1
 
-  const flush = (end: number) => {
-    if (start < 0) return
-    const first = parts[start]
+  const flushContext = (end: number) => {
+    if (contextStart < 0) return
+    const first = parts[contextStart]
     const last = parts[end]
     if (!first || !last) {
-      start = -1
+      contextStart = -1
       return
     }
     result.push({
       key: `context:${first.part.id}`,
       type: "context",
-      refs: parts.slice(start, end + 1).map((item) => ({
+      refs: parts.slice(contextStart, end + 1).map((item) => ({
         messageID: item.messageID,
         partID: item.part.id,
       })),
     })
-    start = -1
+    contextStart = -1
+  }
+
+  const flushReasoning = (end: number) => {
+    if (reasoningStart < 0) return
+    const first = parts[reasoningStart]
+    const last = parts[end]
+    if (!first || !last) {
+      reasoningStart = -1
+      return
+    }
+    result.push({
+      key: `reasoning:${first.messageID}:${first.part.id}`,
+      type: "reasoning",
+      refs: parts.slice(reasoningStart, end + 1).map((item) => ({
+        messageID: item.messageID,
+        partID: item.part.id,
+      })),
+    })
+    reasoningStart = -1
   }
 
   parts.forEach((item, index) => {
     if (isContextGroupTool(item.part)) {
-      if (start < 0) start = index
+      flushReasoning(index - 1)
+      if (contextStart < 0) contextStart = index
+      return
+    }
+    if (item.part.type === "reasoning") {
+      flushContext(index - 1)
+      if (reasoningStart < 0) reasoningStart = index
       return
     }
 
-    flush(index - 1)
+    flushContext(index - 1)
+    flushReasoning(index - 1)
     result.push({
       key: `part:${item.messageID}:${item.part.id}`,
       type: "part",
@@ -696,7 +734,8 @@ export function groupParts(parts: { messageID: string; part: PartType }[]) {
     })
   })
 
-  flush(parts.length - 1)
+  flushContext(parts.length - 1)
+  flushReasoning(parts.length - 1)
   return result
 }
 
@@ -791,6 +830,22 @@ export function AssistantParts(props: {
                     <ContextToolGroup parts={parts()} busy={busy()} />
                   </Show>
                 )
+              })()}
+            </Match>
+            <Match when={entryType() === "reasoning"}>
+              {(() => {
+                const items = createMemo(() => {
+                  const entry = entryAccessor()
+                  if (entry.type !== "reasoning") return []
+                  return entry.refs.flatMap((ref) => {
+                    const message = msgs().get(ref.messageID)
+                    const item = part().get(ref.messageID)?.get(ref.partID)
+                    if (!message || item?.type !== "reasoning") return []
+                    return [{ message, part: item }]
+                  })
+                })
+
+                return <ReasoningParts items={items()} />
               })()}
             </Match>
             <Match when={entryType() === "part"}>
@@ -1064,6 +1119,16 @@ export function ContextToolGroup(props: {
     props.onSizeChange?.()
     window.setTimeout(() => props.onSizeChange?.(), 220)
   }
+
+  createEffect(
+    on(pending, (value, previous) => {
+      if (value) {
+        if (!open()) handleOpenChange(true)
+        return
+      }
+      if (previous === true) handleOpenChange(false)
+    }),
+  )
 
   return (
     <Collapsible
@@ -1533,6 +1598,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
                 <ToolErrorCard
                   tool={part().tool}
                   error={error()}
+                  status={part().state.status}
                   title={part().tool === "websearch" ? webSearchProviderLabel(partMetadata().provider) : undefined}
                   defaultOpen={props.defaultOpen}
                   open={controlledOpen()}
@@ -1695,22 +1761,41 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
   )
 }
 
-PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
+export function ReasoningParts(props: { items: ReasoningGroupItem[]; defaultOpen?: boolean }) {
   const data = useData()
   const i18n = useI18n()
-  const part = () => props.part as ReasoningPart
-  const [open, setOpen] = createSignal(props.reasoningOpen ?? false)
+  const [open, setOpen] = createSignal(props.defaultOpen ?? false)
   const [now, setNow] = createSignal(Date.now())
-  const streaming = createMemo(
-    () => props.message.role === "assistant" && typeof (props.message as AssistantMessage).time.completed !== "number",
+  const items = createMemo(() => props.items)
+  const streaming = createMemo(() =>
+    items().some(
+      (item) => item.message.role === "assistant" && typeof (item.message as AssistantMessage).time.completed !== "number",
+    ),
   )
-  const text = () => readPartText(data.store.part_text_accum_delta, part())
-  const duration = createMemo(() => Math.max(0, Math.round(((part().time.end ?? now()) - part().time.start) / 1000)))
+  const text = createMemo(() =>
+    items()
+      .map((item) => readPartText(data.store.part_text_accum_delta, item.part))
+      .filter(Boolean)
+      .join("\n\n"),
+  )
+  const duration = createMemo(() => {
+    const first = items()[0]?.part
+    const last = items().at(-1)?.part
+    if (!first || !last) return 0
+    return Math.max(0, Math.round(((last.time.end ?? now()) - first.time.start) / 1000))
+  })
+  const cacheKey = createMemo(() => items()[0]?.part.id ?? "reasoning")
   let content: HTMLDivElement | undefined
 
-  createEffect(() => {
-    setOpen(streaming() || props.reasoningOpen === true)
-  })
+  createEffect(
+    on(streaming, (value, previous) => {
+      if (value) {
+        setOpen(true)
+        return
+      }
+      if (previous === true) setOpen(false)
+    }),
+  )
 
   createEffect(() => {
     if (!streaming()) return
@@ -1732,7 +1817,9 @@ PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
         onOpenChange={setOpen}
         variant="ghost"
         class="reasoning-collapsible"
-        data-timeline-part-id={part().id}
+        data-timeline-part-ids={items()
+          .map((item) => item.part.id)
+          .join(",")}
       >
         <Collapsible.Trigger>
           <span data-slot="reasoning-part-label">{i18n.t("ui.sessionTurn.status.thinking")}</span>
@@ -1741,13 +1828,22 @@ PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
         </Collapsible.Trigger>
         <Collapsible.Content class="claude-disclosure-content">
           <div ref={content} data-component="reasoning-part" data-streaming={streaming() ? "" : undefined}>
-            <Show when={streaming()} fallback={<Markdown text={text()} cacheKey={part().id} streaming={false} />}>
-              <PacedMarkdown text={text()} cacheKey={part().id} streaming={streaming()} />
+            <Show when={streaming()} fallback={<Markdown text={text()} cacheKey={cacheKey()} streaming={false} />}>
+              <PacedMarkdown text={text()} cacheKey={cacheKey()} streaming={streaming()} />
             </Show>
           </div>
         </Collapsible.Content>
       </Collapsible>
     </Show>
+  )
+}
+
+PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
+  return (
+    <ReasoningParts
+      items={[{ message: props.message, part: props.part as ReasoningPart }]}
+      defaultOpen={props.reasoningOpen}
+    />
   )
 }
 

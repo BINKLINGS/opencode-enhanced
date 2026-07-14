@@ -1,4 +1,4 @@
-import { type ComponentProps, createMemo, Show, splitProps } from "solid-js"
+import { type ComponentProps, createEffect, createMemo, on, Show, splitProps } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Card, CardDescription } from "@opencode-ai/ui/card"
 import { Collapsible } from "@opencode-ai/ui/collapsible"
@@ -14,6 +14,7 @@ export interface ToolErrorCardProps extends Omit<ComponentProps<typeof Card>, "c
   defaultOpen?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  status?: string
   subtitle?: string
   href?: string
 }
@@ -33,6 +34,7 @@ export function ToolErrorCard(props: ToolErrorCardProps) {
     "defaultOpen",
     "open",
     "onOpenChange",
+    "status",
     "subtitle",
     "href",
   ])
@@ -40,6 +42,17 @@ export function ToolErrorCard(props: ToolErrorCardProps) {
     if (props.open === undefined) setState("open", value)
     props.onOpenChange?.(value)
   }
+  const pending = createMemo(() => props.status === "pending" || props.status === "running")
+
+  createEffect(
+    on(pending, (value, previous) => {
+      if (value) {
+        setOpen(true)
+        return
+      }
+      if (previous === true) setOpen(false)
+    }),
+  )
   const name = createMemo(() => {
     if (split.title) return split.title
     const map: Record<string, string> = {

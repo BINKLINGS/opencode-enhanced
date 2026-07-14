@@ -25,6 +25,7 @@ import {
   Message,
   MessageDivider,
   Part as MessagePart,
+  ReasoningParts,
   partDefaultOpen,
   type UserActions,
 } from "@opencode-ai/session-ui/message-part"
@@ -1000,8 +1001,12 @@ export function MessageTimeline(props: {
           .filter((part): part is ToolPart => part?.type === "tool")
       })
       const contextOpenKey = () => `context:${row().group.key}`
+      const busy = createMemo(
+        () => workingTurn(row().userMessageID) && lastAssistantGroupKey().get(row().userMessageID) === row().group.key,
+      )
       const open = createMemo(() => {
-        return toolOpen[contextOpenKey()] ?? settings.general.toolPartsExpanded()
+        const active = busy() || parts().some((part) => part.state.status === "pending" || part.state.status === "running")
+        return toolOpen[contextOpenKey()] ?? (active ? settings.general.toolPartsExpanded() : false)
       })
 
       return (
@@ -1009,12 +1014,28 @@ export function MessageTimeline(props: {
           parts={parts()}
           open={open()}
           onOpenChange={(value) => setToolOpen(contextOpenKey(), value)}
-          busy={
-            workingTurn(row().userMessageID) && lastAssistantGroupKey().get(row().userMessageID) === row().group.key
-          }
+          busy={busy()}
           onSizeChange={onSizeChange}
         />
       )
+    }
+
+    if (row().group.type === "reasoning") {
+      const group = row().group
+      const items = createMemo(() =>
+        group.refs.flatMap((ref) => {
+          const message = messageByID().get(ref.messageID)
+          const part = getMsgPart(ref.messageID, ref.partID)
+          if (!message || part?.type !== "reasoning") return []
+          return [{ message, part }]
+        }),
+      )
+      const active = createMemo(() =>
+        items().some(
+          (item) => item.message.role === "assistant" && typeof item.message.time.completed !== "number",
+        ),
+      )
+      return <ReasoningParts items={items()} defaultOpen={active()} />
     }
 
     const message = createMemo(() => {
@@ -1046,7 +1067,12 @@ export function MessageTimeline(props: {
                 useV2Actions={settings.general.newLayoutDesigns()}
                 reasoningOpen={settings.general.reasoningPartsExpanded()}
                 defaultOpen={defaultOpen()}
-                toolOpen={toolOpen[part().id] ?? defaultOpen()}
+                toolOpen={
+                  toolOpen[part().id] ??
+                  (part().type === "tool" && (part().state.status === "pending" || part().state.status === "running")
+                    ? defaultOpen()
+                    : false)
+                }
                 onToolOpenChange={(open) => setToolOpen(part().id, open)}
                 deferToolContent
                 virtualizeDiff={false}

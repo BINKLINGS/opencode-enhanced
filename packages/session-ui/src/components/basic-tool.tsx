@@ -163,6 +163,16 @@ export function BasicTool(props: BasicToolProps) {
     setOpen(value)
   }
 
+  createEffect(
+    on(pending, (value, previous) => {
+      if (value) {
+        setOpen(true)
+        return
+      }
+      if (previous === true) setOpen(false)
+    }),
+  )
+
   const trigger = () => (
     <div
       data-component="tool-trigger"

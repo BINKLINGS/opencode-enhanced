@@ -239,7 +239,7 @@
 --v2-background-bg-button-neutral: var(--v2-grey-50);
 --v2-background-bg-accent: var(--v2-blue-600);
 
---v2-text-text-base: var(--v2-grey-1100);
+--v2-text-text-base: rgb(240, 234, 240);
 --v2-text-text-muted: var(--v2-grey-700);
 --v2-text-text-faint: var(--v2-grey-600);
 --v2-text-text-inverse: var(--v2-grey-50);
