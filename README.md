@@ -14,6 +14,11 @@
   <a href="https://github.com/anomalyco/opencode/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/publish.yml?style=flat-square&branch=dev" /></a>
 </p>
 
+# Enhanced UI (Claude Desktop Style)
+<img width="3840" height="2064" alt="image" src="https://github.com/user-attachments/assets/1b60e421-92b9-4e9e-94ac-b17aa97145c8" />
+<img width="3840" height="2064" alt="image" src="https://github.com/user-attachments/assets/0fe9a283-e276-4d72-b9ff-9f6a78e4b0ff" />
+
+
 <p align="center">
   <a href="README.md">English</a> |
   <a href="README.zh.md">简体中文</a> |
