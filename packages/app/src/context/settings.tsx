@@ -35,7 +35,7 @@ export interface Settings {
     editToolPartsExpanded: boolean
     showCustomAgents: boolean
     mobileTitlebarPosition: "top" | "bottom"
-    newLayoutDesigns?: boolean
+    newLayoutDesigns: boolean
   }
   appearance: {
     fontSize: number
@@ -54,8 +54,6 @@ export interface Settings {
 export const monoDefault = "System Mono"
 export const sansDefault = "System Sans"
 export const terminalDefault = "JetBrainsMono Nerd Font Mono"
-export const newLayoutDesignsDefault = import.meta.env.VITE_OPENCODE_CHANNEL !== "prod"
-
 const monoFallback =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
 const sansFallback = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
@@ -120,8 +118,9 @@ const defaultSettings: Settings = {
     toolPartsExpanded: true,
     shellToolPartsExpanded: true,
     editToolPartsExpanded: true,
-    showCustomAgents: false,
+    showCustomAgents: true,
     mobileTitlebarPosition: "top",
+    newLayoutDesigns: true,
   },
   appearance: {
     fontSize: 14,
@@ -160,12 +159,8 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
     const showFileTree = withFallback(() => store.general?.showFileTree, defaultSettings.general.showFileTree)
     const showSearch = withFallback(() => store.general?.showSearch, defaultSettings.general.showSearch)
     const showStatus = withFallback(() => store.general?.showStatus, defaultSettings.general.showStatus)
-    const showCustomAgents = withFallback(
-      () => store.general?.showCustomAgents,
-      defaultSettings.general.showCustomAgents,
-    )
-    const newLayoutDesigns = withFallback(() => store.general?.newLayoutDesigns, newLayoutDesignsDefault)
-    const visible = (preference: () => boolean) => createMemo(() => !newLayoutDesigns() || preference())
+    const newLayoutDesigns = () => true
+    const visible = (preference: () => boolean) => createMemo(preference)
 
     createEffect(() => {
       if (typeof document === "undefined") return
@@ -193,6 +188,12 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       setStore("general", "toolPartsExpanded", true)
       setStore("general", "shellToolPartsExpanded", true)
       setStore("general", "editToolPartsExpanded", true)
+    })
+
+    createEffect(() => {
+      if (store.general?.newLayoutDesigns === true && store.general?.showCustomAgents === true) return
+      setStore("general", "newLayoutDesigns", true)
+      setStore("general", "showCustomAgents", true)
     })
 
     return {
@@ -268,10 +269,6 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         setEditToolPartsExpanded(value: boolean) {
           setStore("general", "editToolPartsExpanded", true)
         },
-        showCustomAgents,
-        setShowCustomAgents(value: boolean) {
-          setStore("general", "showCustomAgents", value)
-        },
         mobileTitlebarPosition: withFallback(
           () => store.general?.mobileTitlebarPosition,
           defaultSettings.general.mobileTitlebarPosition,
@@ -280,15 +277,12 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
           setStore("general", "mobileTitlebarPosition", value)
         },
         newLayoutDesigns,
-        setNewLayoutDesigns(value: boolean) {
-          setStore("general", "newLayoutDesigns", value)
-        },
       },
       visibility: {
         fileTree: visible(showFileTree),
         search: visible(showSearch),
         status: visible(showStatus),
-        customAgents: visible(showCustomAgents),
+        customAgents: () => true,
       },
       appearance: {
         fontSize: withFallback(() => store.appearance?.fontSize, defaultSettings.appearance.fontSize),

@@ -496,7 +496,6 @@
     min-height: 36px;
     width: 100%;
     padding: 0 10px;
-    border: 1px solid transparent;
     border-radius: 8px;
     color: var(--v2-text-text-muted);
     font-size: 13px;
@@ -514,9 +513,8 @@
 
   .claude-session-item-active {
     color: var(--v2-text-text-contrast);
-    border-color: color-mix(in srgb, var(--v2-border-border-strong) 74%, transparent);
     background: color-mix(in srgb, var(--v2-overlay-simple-overlay-pressed) 88%, #68323f 12%);
-    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--v2-icon-icon-accent) 92%, #d75f66 8%), 0 2px 9px color-mix(in srgb, #000 14%, transparent);
+    box-shadow: none;
   }
 
   .claude-session-dot {
@@ -971,8 +969,7 @@
     margin-block-start: 0 !important;
   }
 
-  .claude-main .tool-collapsible [data-component="tool-output"],
-  .claude-main .tool-collapsible [data-component="bash-output"] {
+  .claude-main .tool-collapsible [data-component="tool-output"] {
     min-height: 96px;
     height: clamp(180px, 32vh, 360px);
     max-height: 65vh;
@@ -980,6 +977,14 @@
     resize: vertical;
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--v2-border-border-strong) 75%, transparent) transparent;
+  }
+
+  .claude-main .tool-collapsible [data-component="bash-output"] {
+    min-height: 0;
+    height: auto;
+    max-height: 65vh;
+    overflow: hidden;
+    resize: none;
   }
 
   .claude-main .tool-collapsible :is(

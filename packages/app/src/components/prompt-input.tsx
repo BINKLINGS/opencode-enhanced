@@ -1614,7 +1614,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               data-component={newSession() ? "session-new-composer" : "session-composer"}
               onSubmit={handleSubmit}
               classList={{
-                "group/prompt-input min-h-[96px] w-full rounded-xl bg-[rgb(44_42_42)] shadow-[var(--v2-elevation-raised)]": true,
+                "group/prompt-input w-full rounded-xl bg-[rgb(44_42_42)] shadow-[var(--v2-elevation-raised)]": true,
+                "min-h-[96px]": store.mode !== "shell",
                 "border-icon-info-active border-dashed": store.draggingType !== null,
                 [props.class ?? ""]: !!props.class,
               }}
@@ -1647,7 +1648,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 removeLabel={language.t("prompt.attachment.remove")}
               />
               <div
-                class="relative min-h-[52px]"
+                class="relative"
+                classList={{ "min-h-[52px]": store.mode !== "shell" }}
                 onMouseDown={(e) => {
                   const target = e.target
                   if (!(target instanceof HTMLElement)) return
@@ -1678,7 +1680,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     onKeyDown={handleKeyDown}
                     classList={{
                       "select-text": true,
-                      "min-h-[52px] w-full px-4 pt-4 pb-2 focus:outline-none whitespace-pre-wrap leading-5 text-[13px] font-[440] text-v2-text-text-base": true,
+                      "w-full px-4 pt-4 pb-2 focus:outline-none whitespace-pre-wrap leading-5 text-[13px] font-[440] text-v2-text-text-base": true,
+                      "min-h-[52px]": store.mode !== "shell",
                       "[&_[data-type=file]]:text-syntax-property": true,
                       "[&_[data-type=agent]]:text-syntax-type": true,
                       "font-mono!": store.mode === "shell",

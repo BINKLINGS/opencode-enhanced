@@ -1,7 +1,7 @@
 import { For } from "solid-js"
 import { createStore } from "solid-js/store"
 import { SessionRevertDock } from "@/pages/session/composer/session-revert-dock"
-import { SettingsProvider, useSettings } from "@/context/settings"
+import { SettingsProvider } from "@/context/settings"
 
 export default {
   title: "Composer/Revert Dock",
@@ -52,11 +52,9 @@ const btn = (accent?: boolean) =>
   }) as const
 
 function Stage(props: { count: number }) {
-  const settings = useSettings()
   const seed = () => messages.slice(0, props.count).map((text, index) => ({ id: `rolled-${index}`, text }))
   const [store, setStore] = createStore({ items: seed() })
 
-  const v2 = () => settings.general.newLayoutDesigns()
   const reset = () => setStore("items", seed())
   const restore = (id: string) =>
     setStore(
@@ -69,9 +67,6 @@ function Stage(props: { count: number }) {
       <div style={{ display: "flex", gap: "8px" }}>
         <button style={btn()} onClick={reset}>
           Reset ({props.count})
-        </button>
-        <button style={btn(v2())} onClick={() => settings.general.setNewLayoutDesigns(!v2())}>
-          Layout: {v2() ? "v2" : "v1"}
         </button>
       </div>
 

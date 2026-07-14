@@ -5,7 +5,6 @@ import { SelectV2 } from "@opencode-ai/ui/v2/select-v2"
 import { Switch } from "@opencode-ai/ui/v2/switch-v2"
 import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme/context"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
 import { usePermission } from "@/context/permission"
 import { usePlatform } from "@/context/platform"
@@ -87,7 +86,6 @@ export const SettingsGeneralV2: Component<{
   const language = useLanguage()
   const permission = usePermission()
   const platform = usePlatform()
-  const dialog = useDialog()
   const settings = useSettings()
   const serverSync = useServerSync()
   const serverSdk = useServerSDK()
@@ -309,25 +307,6 @@ export const SettingsGeneralV2: Component<{
             />
           </div>
         </SettingsRowV2>
-
-        <SettingsRowV2
-          title={language.t("settings.general.row.newLayoutDesigns.title")}
-          description={language.t("settings.general.row.newLayoutDesigns.description")}
-        >
-          <div data-action="settings-new-layout-designs">
-            <Switch
-              checked={settings.general.newLayoutDesigns()}
-              onChange={(checked) => {
-                settings.general.setNewLayoutDesigns(checked)
-                if (checked) return
-                void import("@/components/dialog-settings").then((module) => {
-                  dialog.show(() => <module.DialogSettings />)
-                })
-              }}
-            />
-          </div>
-        </SettingsRowV2>
-
         <Show when={mobile() && import.meta.env.VITE_OPENCODE_CHANNEL !== "prod"}>
           <SettingsRowV2
             title={language.t("settings.general.row.mobileTitlebarBottom.title")}
@@ -382,18 +361,6 @@ export const SettingsGeneralV2: Component<{
             <Switch
               checked={settings.general.showStatus()}
               onChange={(checked) => settings.general.setShowStatus(checked)}
-            />
-          </div>
-        </SettingsRowV2>
-
-        <SettingsRowV2
-          title={language.t("settings.general.row.showCustomAgents.title")}
-          description={language.t("settings.general.row.showCustomAgents.description")}
-        >
-          <div data-action="settings-show-custom-agents">
-            <Switch
-              checked={settings.general.showCustomAgents()}
-              onChange={(checked) => settings.general.setShowCustomAgents(checked)}
             />
           </div>
         </SettingsRowV2>
