@@ -90,6 +90,9 @@ export function createTimelineProjection(input: {
     const result = new Map<string, string>()
     rows().forEach((row) => {
       if (row._tag === "AssistantPart") result.set(row.userMessageID, row.group.key)
+      if (row._tag === "AssistantExecution") {
+        row.groups.forEach((group) => result.set(row.userMessageID, group.key))
+      }
     })
     return result
   })

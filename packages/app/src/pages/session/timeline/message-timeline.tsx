@@ -89,7 +89,14 @@ type FramedTimelineRow = Exclude<TimelineRow.TimelineRow, { _tag: "TurnGap" }>
 type TimelineRowByTag<T extends TimelineRow.TimelineRow["_tag"]> = Extract<TimelineRow.TimelineRow, { _tag: T }>
 
 const timelineFallbackItemSize = 60
-const timelineCache = new Map<string, { measurements: VirtualItem[]; toolOpen: Record<string, boolean | undefined> }>()
+const timelineCache = new Map<
+  string,
+  {
+    measurements: VirtualItem[]
+    toolOpen: Record<string, boolean | undefined>
+    executionOpen: Record<string, boolean | undefined>
+  }
+>()
 
 const taskDescription = (part: PartType, sessionID: string) => {
   if (part.type !== "tool" || part.tool !== "task") return
@@ -140,6 +147,65 @@ function TimelineThinkingRow(props: { reasoningHeading?: string; showReasoningSu
         <TextReveal text={props.reasoningHeading} class="session-turn-thinking-heading" travel={25} duration={700} />
       </Show>
     </div>
+  )
+}
+
+function TimelineExecutionGroup(props: {
+  children: JSX.Element
+  stepCount: number
+  durationMs?: number
+  open?: boolean
+  defaultOpen: boolean
+  shouldCollapse: boolean
+  onOpenChange: (open: boolean) => void
+  onSizeChange?: () => void
+}) {
+  const language = useLanguage()
+  const open = () => props.open ?? props.defaultOpen
+  const duration = createMemo(() => {
+    if (props.durationMs === undefined) return
+    const seconds = Math.max(0, Math.round(props.durationMs / 1000))
+    return `${seconds}s`
+  })
+  const handleOpenChange = (value: boolean) => {
+    props.onOpenChange(value)
+    props.onSizeChange?.()
+    window.setTimeout(() => props.onSizeChange?.(), 220)
+  }
+
+  createEffect(
+    on(
+      () => props.shouldCollapse,
+      (collapse, previous) => {
+        if (!collapse || previous !== true) return
+        handleOpenChange(false)
+      },
+    ),
+  )
+
+  return (
+    <Collapsible
+      data-component="assistant-execution-group"
+      data-open={open() ? "true" : "false"}
+      open={open()}
+      onOpenChange={handleOpenChange}
+      variant="ghost"
+    >
+      <Collapsible.Trigger
+        aria-label={language.t(open() ? "ui.sessionTurn.steps.hide" : "ui.sessionTurn.steps.show")}
+      >
+        <div data-slot="assistant-execution-trigger">
+          <span data-slot="assistant-execution-summary">
+            <span data-slot="assistant-execution-count">{props.stepCount} steps</span>
+            <Show when={duration()}>{(value) => <span data-slot="assistant-execution-duration">{value()}</span>}</Show>
+          </span>
+          <Collapsible.Arrow />
+        </div>
+      </Collapsible.Trigger>
+      <Collapsible.Content class="claude-disclosure-content assistant-execution-content">
+        <div data-component="assistant-execution-list">{props.children}</div>
+      </Collapsible.Content>
+    </Collapsible>
   )
 }
 
@@ -405,6 +471,9 @@ export function MessageTimeline(props: {
   }
 
   const [toolOpen, setToolOpen] = createStore<Record<string, boolean | undefined>>(cached?.toolOpen ?? {})
+  const [executionOpen, setExecutionOpen] = createStore<Record<string, boolean | undefined>>(
+    cached?.executionOpen ?? {},
+  )
   const [renderOverscan, setRenderOverscan] = createSignal(initialMeasurements?.length || coldBottomMount ? 6 : 20)
   let resizePinnedIndexes: number[] = []
   let resizePinFrame: number | undefined
@@ -537,7 +606,11 @@ export function MessageTimeline(props: {
   onCleanup(() => {
     clearPrependAnchor()
     timelineCache.delete(ownerSessionKey)
-    timelineCache.set(ownerSessionKey, { measurements: virtualizer.takeSnapshot(), toolOpen: { ...toolOpen } })
+    timelineCache.set(ownerSessionKey, {
+      measurements: virtualizer.takeSnapshot(),
+      toolOpen: { ...toolOpen },
+      executionOpen: { ...executionOpen },
+    })
     while (timelineCache.size > 16) timelineCache.delete(timelineCache.keys().next().value!)
     if (resizePinFrame !== undefined) cancelAnimationFrame(resizePinFrame)
     if (overscanFrame !== undefined) cancelAnimationFrame(overscanFrame)
@@ -1085,6 +1158,21 @@ export function MessageTimeline(props: {
     )
   }
 
+  const executionDurationMs = (groups: TimelineRowMap["AssistantExecution"]["groups"]) => {
+    const times = groups
+      .flatMap((group) => (group.type === "part" ? [group.ref] : group.refs))
+      .flatMap((ref) => {
+        const part = getMsgPart(ref.messageID, ref.partID)
+        if (part?.type === "reasoning") return [part.time]
+        if (part?.type === "tool" && "time" in part.state) return [part.state.time]
+        return []
+      })
+    if (times.length === 0) return
+    const start = Math.min(...times.map((time) => time.start))
+    const end = Math.max(...times.map((time) => time.end ?? Date.now()))
+    return Math.max(0, end - start)
+  }
+
   function TimelineRowFrame(input: { row: Accessor<FramedTimelineRow>; children: JSX.Element }) {
     const anchor = () => {
       const row = input.row()
@@ -1092,7 +1180,7 @@ export function MessageTimeline(props: {
     }
     const previousAssistantPart = () => {
       const row = input.row()
-      return row._tag === "AssistantPart" && row.previousAssistantPart
+      return (row._tag === "AssistantPart" || row._tag === "AssistantExecution") && row.previousAssistantPart
     }
 
     return (
@@ -1213,6 +1301,46 @@ export function MessageTimeline(props: {
                 aria-hidden={workingTurn(assistantPartRow().userMessageID)}
               >
                 {renderAssistantPartGroup(assistantPartRow, onSizeChange)}
+              </div>
+            </div>
+          </TimelineRowFrame>
+        )
+      }
+      case "AssistantExecution": {
+        const executionRow = row as Accessor<TimelineRowByTag<"AssistantExecution">>
+        const key = () => TimelineRow.key(executionRow())
+        const active = createMemo(
+          () =>
+            workingTurn(executionRow().userMessageID) &&
+            lastAssistantGroupKey().get(executionRow().userMessageID) === executionRow().groups.at(-1)?.key,
+        )
+        const durationMs = createMemo(() => executionDurationMs(executionRow().groups))
+        return (
+          <TimelineRowFrame row={executionRow}>
+            <div data-slot="session-turn-message-container" class="w-full px-4 md:px-5">
+              <div data-slot="session-turn-assistant-content" aria-hidden={workingTurn(executionRow().userMessageID)}>
+                <TimelineExecutionGroup
+                  stepCount={executionRow().groups.length}
+                  durationMs={durationMs()}
+                  open={executionOpen[key()]}
+                  defaultOpen={active() && !executionRow().responseStarted}
+                  shouldCollapse={!active() || executionRow().responseStarted}
+                  onOpenChange={(open) => setExecutionOpen(key(), open)}
+                  onSizeChange={onSizeChange}
+                >
+                  <Index each={executionRow().groups}>
+                    {(group) =>
+                      renderAssistantPartGroup(
+                        () => ({
+                          userMessageID: executionRow().userMessageID,
+                          group: group(),
+                          previousAssistantPart: false,
+                        }),
+                        onSizeChange,
+                      )
+                    }
+                  </Index>
+                </TimelineExecutionGroup>
               </div>
             </div>
           </TimelineRowFrame>

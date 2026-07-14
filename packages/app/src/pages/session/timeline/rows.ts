@@ -23,6 +23,12 @@ export type TimelineRowMap = {
     group: PartGroup
     previousAssistantPart: boolean
   }
+  AssistantExecution: {
+    userMessageID: string
+    groups: PartGroup[]
+    previousAssistantPart: boolean
+    responseStarted: boolean
+  }
   Thinking: { userMessageID: string; reasoningHeading?: string }
   Retry: { userMessageID: string }
   DiffSummary: { userMessageID: string; diffs: SummaryDiff[] }
@@ -53,6 +59,9 @@ export namespace Timeline {
       getMessageParts(message.id)
         .filter((part) => renderable(part, showReasoning))
         .map((part) => ({ messageID: message.id, messageIndex, part })),
+    )
+    const assistantPartByRef = new Map(
+      assistantPartRefs.map((item) => [`${item.messageID}:${item.part.id}`, item.part] as const),
     )
     const assistantItems =
       interrupted && !compaction
@@ -97,9 +106,36 @@ export namespace Timeline {
       )
     }
 
+    const partForGroup = (group: PartGroup) => {
+      if (group.type !== "part") return
+      return assistantPartByRef.get(`${group.ref.messageID}:${group.ref.partID}`)
+    }
+    const executionGroup = (group: PartGroup) => {
+      if (group.type === "context" || group.type === "reasoning") return true
+      const part = partForGroup(group)
+      return part?.type === "tool" && part.tool !== "task" && part.tool !== "question"
+    }
+    const responseGroup = (group: PartGroup) => partForGroup(group)?.type === "text"
+
     let assistantGroupIndex = 0
-    assistantItems.forEach((item) => {
+    let executionGroups: PartGroup[] = []
+    const flushExecutionGroups = (responseStarted: boolean) => {
+      if (executionGroups.length === 0) return
+      rows.push(
+        new TimelineRow.AssistantExecution({
+          userMessageID: userMessage.id,
+          groups: executionGroups,
+          previousAssistantPart: assistantGroupIndex > 0,
+          responseStarted,
+        }),
+      )
+      assistantGroupIndex += 1
+      executionGroups = []
+    }
+
+    assistantItems.forEach((item, itemIndex) => {
       if (item.type === "interrupted") {
+        flushExecutionGroups(false)
         rows.push(
           new TimelineRow.TurnDivider({
             userMessageID: userMessage.id,
@@ -108,6 +144,13 @@ export namespace Timeline {
         )
         return
       }
+
+      if (executionGroup(item.group)) {
+        executionGroups.push(item.group)
+        return
+      }
+
+      flushExecutionGroups(assistantItems.slice(itemIndex).some((next) => next.type === "part" && responseGroup(next.group)))
 
       rows.push(
         new TimelineRow.AssistantPart({
@@ -118,6 +161,7 @@ export namespace Timeline {
       )
       assistantGroupIndex += 1
     })
+    flushExecutionGroups(false)
 
     if (isActive && status === "busy" && !error && (showReasoning ? assistantPartRefs.length === 0 : true)) {
       const heading = assistantMessages
